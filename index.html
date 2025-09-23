@@ -25,7 +25,7 @@
 
   body {
     font-family: 'Inter', sans-serif;
-    background: linear-gradient(135deg, var(--background-color-main) 0%, var(--background-color-light) 100%);
+    background: #000C69;
     color: var(--text-color);
     display: flex;
     flex-direction: column;
@@ -106,8 +106,8 @@
     padding: 25px;
     display: flex;
     flex-direction: column;
-    min-height: 400px; /* Minimalna wysokość karty */
     position: relative;
+    transition: min-height 0.3s ease; /* Płynna zmiana wysokości */
   }
 
   .client-card h3 {
@@ -118,6 +118,41 @@
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 10px;
     color: var(--primary-color-accent); /* Akcent kolorystyczny dla nazwiska */
+    cursor: pointer; /* Kursor wskazujący na klikalność */
+    position: relative; /* Potrzebne dla pseudo-elementu strzałki */
+    user-select: none; /* Zapobiega zaznaczaniu tekstu przy klikaniu */
+    /* ZMIANA: Dodano padding, aby zrobić miejsce na strzałkę po lewej */
+    padding-left: 25px;
+  }
+
+  /* Strzałka wskazująca stan zwinięcia/rozwinięcia */
+  .client-card h3::after {
+    content: '▲';
+    position: absolute;
+    /* ZMIANA: Przeniesiono strzałkę na lewą stronę */
+    left: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.8em;
+    color: var(--text-secondary-color);
+    transition: transform 0.3s ease-out;
+  }
+
+  /* Obrót strzałki w stanie zwiniętym */
+  .client-card.collapsed h3::after {
+    transform: translateY(-50%) rotate(180deg);
+  }
+
+  /* Kontener na zwijaną zawartość */
+  .collapsible-content {
+      max-height: 1000px; /* Wystarczająco duża wysokość */
+      overflow: hidden;
+      transition: max-height 0.5s ease-in-out;
+  }
+
+  /* Ukrywanie zawartości w stanie zwiniętym */
+  .client-card.collapsed .collapsible-content {
+      max-height: 0;
   }
 
   /* Przycisk usuwania klienta */
@@ -185,7 +220,7 @@
     transform: rotate(45deg);
   }
   .checklist-item label {
-    font-size: 1em; /* Zmniejszona czcionka dla lepszej czytelności w kartach */
+    font-size: 1em;
     font-weight: 500;
     transition: all 0.2s ease;
     flex-grow: 1;
@@ -202,7 +237,7 @@
     color: var(--strikethrough-color);
   }
 
-  /* NOWOŚĆ: Sekcja dodawania nowego elementu checklisty */
+  /* Sekcja dodawania nowego elementu checklisty */
   .add-item-section {
     display: flex;
     gap: 10px;
@@ -422,20 +457,24 @@
         `).join('');
       }
 
+      // Zmodyfikowana struktura z kontenerem .collapsible-content
       clientCard.innerHTML = `
         <button class="delete-client-btn" onclick="deleteClient('${clientId}')">&times;</button>
-        <h3>${clientName}</h3>
-        <div class="progress-bar-container">
-            <div class="progress-bar"></div>
-        </div>
-        <div class="progress-text">0/0 (0%)</div>
-        <div class="checklist-container">
-          ${checklistHTML}
-        </div>
+        <h3 onclick="toggleCollapse('${clientId}')">${clientName}</h3>
         
-        <div class="add-item-section">
-          <input type="text" class="new-item-input" placeholder="Dodaj nowy dokument...">
-          <button onclick="addChecklistItem('${clientId}')">+</button>
+        <div class="collapsible-content">
+            <div class="progress-bar-container">
+                <div class="progress-bar"></div>
+            </div>
+            <div class="progress-text">0/0 (0%)</div>
+            <div class="checklist-container">
+              ${checklistHTML}
+            </div>
+            
+            <div class="add-item-section">
+              <input type="text" class="new-item-input" placeholder="Dodaj nowy dokument...">
+              <button onclick="addChecklistItem('${clientId}')">+</button>
+            </div>
         </div>
         
         <div class="notes-section">
@@ -448,10 +487,18 @@
       updateProgressBar(clientId); // Zaktualizuj pasek postępu po utworzeniu/załadowaniu
     }
     
-    // NOWOŚĆ: Funkcja do dodawania nowego elementu do checklisty
+    // Funkcja do zwijania/rozwijania listy
+    function toggleCollapse(clientId) {
+        const clientCard = document.querySelector(`.client-card[data-client-id="${clientId}"]`);
+        if (clientCard) {
+            clientCard.classList.toggle('collapsed');
+        }
+    }
+
+    // Funkcja do dodawania nowego elementu do checklisty
     function addChecklistItem(clientId) {
       const clientCard = document.querySelector(`.client-card[data-client-id="${clientId}"]`);
-      if (!clientCard) return;
+      if (!client.card) return;
 
       const input = clientCard.querySelector('.new-item-input');
       const newItemText = input.value.trim();
@@ -510,6 +557,8 @@
     function toggleCheckbox(element, clientId) {
       const checkbox = element.querySelector('input[type="checkbox"]');
       checkbox.checked = !checkbox.checked;
+      // Zatrzymaj propagację, aby kliknięcie nie wywołało toggleCollapse
+      event.stopPropagation(); 
       saveClientData(clientId);
       updateProgressBar(clientId);
     }
@@ -527,8 +576,6 @@
             }
         } catch (e) {
             console.error(`Błąd podczas parsowania danych dla klucza ${key}:`, e);
-            // Opcjonalnie: usuń nieprawidłowe dane
-            // localStorage.removeItem(key);
         }
       });
     });
